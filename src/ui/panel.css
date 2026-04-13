@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Inter font from system stack — no external requests */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  /* Scrollbar — Questrade purple tint */
+  .qa-scroll::-webkit-scrollbar { width: 4px; }
+  .qa-scroll::-webkit-scrollbar-track { background: #F7F7FB; }
+  .qa-scroll::-webkit-scrollbar-thumb { background: #C4A8E0; border-radius: 2px; }
+
+  /* Pill badge */
+  .qa-pill {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold;
+  }
+
+  /* Section header */
+  .qa-section-title {
+    @apply text-[10px] font-bold uppercase tracking-widest text-q-textMuted mb-2;
+  }
+
+  /* KPI row */
+  .qa-kpi-row {
+    @apply flex items-center justify-between py-2 border-b border-q-border last:border-0;
+  }
+}

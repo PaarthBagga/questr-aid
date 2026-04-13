@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Questr-aid",
+  "version": "1.0.0",
+  "description": "Stock research assistant for Questrade — EPS, P/E, dividend yield, payout ratio, DRIP analysis.",
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title":  "Questr-aid"
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://app.questrade.com/*"],
+      "js": ["src/content/index.tsx"],
+      "run_at": "document_idle"
+    }
+  ],
+  "host_permissions": [
+    "https://query1.finance.yahoo.com/*",
+    "https://query2.finance.yahoo.com/*"
+  ],
+  "permissions": ["storage", "activeTab"]
+}
