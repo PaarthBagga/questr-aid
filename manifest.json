@@ -18,7 +18,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://app.questrade.com/*"],
+      "matches": [
+        "https://my.questrade.com/*",
+        "https://app.questrade.com/*"
+      ],
       "js": ["src/content/index.tsx"],
       "run_at": "document_idle"
     }

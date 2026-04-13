@@ -41,10 +41,16 @@ function fromManualOverride(): string | null {
  * Decode the URL first to handle percent-encoded characters (%2E for '.').
  */
 const URL_PATTERNS: RegExp[] = [
-  /\/trading\/ticker\/([A-Z]{1,6}(?:\.TO)?)/i,
-  /\/trading\/([A-Z]{1,6}(?:\.TO)?)\b/i,
+  // my.questrade.com/trading/quotes?GOOG  (confirmed from live platform)
+  /[?&]([A-Z]{1,6}(?:\.TO)?)(?:&|$)/i,
+  // my.questrade.com/trading/quotes/GOOG  (path-based variant)
+  /\/quotes\/([A-Z]{1,6}(?:\.TO)?)\b/i,
+  // Generic symbol/ticker query params
   /[?&]symbol=([A-Z]{1,6}(?:\.TO)?)/i,
   /[?&]ticker=([A-Z]{1,6}(?:\.TO)?)/i,
+  // Fallback: any /trading/TICKER path segment
+  /\/trading\/([A-Z]{1,6}(?:\.TO)?)\b/i,
+  // Hash-based SPA routes
   /#.*\/([A-Z]{1,6}(?:\.TO)?)\b/i,
 ];
 

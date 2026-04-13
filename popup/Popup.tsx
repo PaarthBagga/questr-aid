@@ -17,7 +17,8 @@ export function Popup() {
     });
   }, []);
 
-  const isOnQuestrade = tabUrl.includes('app.questrade.com');
+  const isOnQuestrade =
+    tabUrl.includes('my.questrade.com') || tabUrl.includes('app.questrade.com');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,7 +57,7 @@ export function Popup() {
           <span className="text-xs text-q-textSecondary">
             {isOnQuestrade
               ? 'Active on Questrade — panel should appear on stock pages.'
-              : 'Not on Questrade. Navigate to app.questrade.com to use Questr-aid.'}
+              : 'Not on Questrade. Navigate to my.questrade.com to use Questr-aid.'}
           </span>
         </div>
 
