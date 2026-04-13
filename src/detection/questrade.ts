@@ -3,14 +3,12 @@
  *
  * Strategy (in priority order):
  *  1. Manual override — set via the popup when auto-detection fails
- *  2. URL pathname patterns
- *  3. DOM attribute / heading heuristics
+ *  2. DOM attribute / heading heuristics  ← preferred, selectors confirmed
+ *  3. URL pathname patterns               ← fallback when DOM not ready
  *  4. Return null — caller handles the empty state
  *
- * NOTE: Questrade's SPA URL structure is not publicly documented.
- * The patterns below are best-effort and must be calibrated against
- * the live platform. Each strategy is isolated so individual patterns
- * can be updated without touching the others.
+ * DOM is checked before URL because URL path segments like "/quote/" were
+ * being captured as the ticker by the generic /trading/ fallback pattern.
  */
 
 export interface DetectedStock {
@@ -41,17 +39,17 @@ function fromManualOverride(): string | null {
  * Decode the URL first to handle percent-encoded characters (%2E for '.').
  */
 const URL_PATTERNS: RegExp[] = [
-  // my.questrade.com/trading/quotes?GOOG  (confirmed from live platform)
-  /[?&]([A-Z]{1,6}(?:\.TO)?)(?:&|$)/i,
-  // my.questrade.com/trading/quotes/GOOG  (path-based variant)
+  // my.questrade.com/trading/quote/AEM  (confirmed from live platform)
+  /\/quote\/([A-Z]{1,6}(?:\.TO)?)\b/i,
+  // my.questrade.com/trading/quotes/GOOG  (plural variant)
   /\/quotes\/([A-Z]{1,6}(?:\.TO)?)\b/i,
   // Generic symbol/ticker query params
   /[?&]symbol=([A-Z]{1,6}(?:\.TO)?)/i,
   /[?&]ticker=([A-Z]{1,6}(?:\.TO)?)/i,
-  // Fallback: any /trading/TICKER path segment
-  /\/trading\/([A-Z]{1,6}(?:\.TO)?)\b/i,
   // Hash-based SPA routes
   /#.*\/([A-Z]{1,6}(?:\.TO)?)\b/i,
+  // Bare query param: ?AEM or &AEM  — checked last, most ambiguous
+  /[?&]([A-Z]{1,6}(?:\.TO)?)(?:&|$)/i,
 ];
 
 function fromUrl(): string | null {
@@ -128,7 +126,9 @@ function nameFromDom(): string | null {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function detect(): DetectedStock | null {
-  const ticker = fromManualOverride() ?? fromUrl() ?? fromDom();
+  // DOM first — confirmed selectors are more reliable than URL path parsing.
+  // URL is a fallback for race conditions where DOM hasn't rendered yet.
+  const ticker = fromManualOverride() ?? fromDom() ?? fromUrl();
   if (!ticker) return null;
 
   const name = nameFromDom() ?? ticker;
