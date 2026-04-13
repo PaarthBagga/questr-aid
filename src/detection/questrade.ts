@@ -107,14 +107,14 @@ function fromDom(): string | null {
 }
 
 function nameFromDom(): string | null {
-  // Company description element confirmed from DevTools inspection
-  // Expected text: "ALPHABET INC (NASDAQ)"
-  const desc = document.querySelector('[data-qa="titleDescription"]');
+  // Confirmed via DevTools on my.questrade.com/trading:
+  //   <small data-qt="lblDescription" class="symbol-title-wrapper__description ng-binding">
+  //     AGNICO EAGLE MINES LTD (NYSE)
+  //   </small>
+  const desc = document.querySelector('[data-qt="lblDescription"]');
   if (desc) {
-    const clone = desc.cloneNode(true) as Element;
-    // Remove exchange <small> tag to get clean company name only
-    clone.querySelectorAll('small').forEach((s) => s.remove());
-    const text = clone.textContent?.trim();
+    // Strip trailing exchange suffix e.g. " (NYSE)" or " (TSX)"
+    const text = desc.textContent?.trim().replace(/\s*\([^)]+\)\s*$/, '');
     if (text && text.length > 1 && text.length < 80) return text;
   }
 
