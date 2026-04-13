@@ -27,7 +27,7 @@ function safeDivide(num: number | null, den: number | null): number | null {
 // ─── Market Cap ──────────────────────────────────────────────────────────────
 
 export function classifyMarketCap(marketCap: number | null): MarketCapResult {
-  if (marketCap == null || isNaN(marketCap)) {
+  if (marketCap == null || isNaN(marketCap) || marketCap < 0) {
     return { value: null, label: 'Unknown', tier: 'unknown' };
   }
 

@@ -2,14 +2,15 @@
  * Questrade-specific ticker detection.
  *
  * Strategy (in priority order):
- *  1. Extract from the URL pathname  (most reliable, least likely to change)
- *  2. Check common DOM attributes / headings
- *  3. Return null — the popup's manual input is the final fallback
+ *  1. Manual override — set via the popup when auto-detection fails
+ *  2. URL pathname patterns
+ *  3. DOM attribute / heading heuristics
+ *  4. Return null — caller handles the empty state
  *
  * NOTE: Questrade's SPA URL structure is not publicly documented.
- * The patterns below are best-effort and may need updating once
- * the live platform is inspected. Each strategy is isolated so
- * individual patterns can be updated without touching the others.
+ * The patterns below are best-effort and must be calibrated against
+ * the live platform. Each strategy is isolated so individual patterns
+ * can be updated without touching the others.
  */
 
 export interface DetectedStock {
@@ -18,22 +19,43 @@ export interface DetectedStock {
   name: string;
 }
 
+// ─── Manual override ──────────────────────────────────────────────────────────
+
+/**
+ * The popup writes a ticker into `host.dataset.manualTicker` when the user
+ * submits one manually. We read it here so detect() transparently returns it
+ * without any cross-module shared state.
+ */
+function fromManualOverride(): string | null {
+  const host = document.getElementById('questr-aid-host');
+  if (!(host instanceof HTMLElement)) return null;
+  const ticker = host.dataset.manualTicker?.trim().toUpperCase();
+  return ticker || null;
+}
+
 // ─── URL-based detection ──────────────────────────────────────────────────────
 
 /**
  * Common Questrade URL patterns we try to match.
  * Each regex must capture the ticker in group 1.
+ * Decode the URL first to handle percent-encoded characters (%2E for '.').
  */
 const URL_PATTERNS: RegExp[] = [
-  /\/trading\/ticker\/([A-Z]{1,5}(?:\.TO)?)/i,
-  /\/trading\/([A-Z]{1,5}(?:\.TO)?)\b/i,
-  /[?&]symbol=([A-Z]{1,5}(?:\.TO)?)/i,
-  /[?&]ticker=([A-Z]{1,5}(?:\.TO)?)/i,
-  /#.*\/([A-Z]{1,5}(?:\.TO)?)\b/i,
+  /\/trading\/ticker\/([A-Z]{1,6}(?:\.TO)?)/i,
+  /\/trading\/([A-Z]{1,6}(?:\.TO)?)\b/i,
+  /[?&]symbol=([A-Z]{1,6}(?:\.TO)?)/i,
+  /[?&]ticker=([A-Z]{1,6}(?:\.TO)?)/i,
+  /#.*\/([A-Z]{1,6}(?:\.TO)?)\b/i,
 ];
 
 function fromUrl(): string | null {
-  const full = location.href;
+  let full: string;
+  try {
+    full = decodeURIComponent(location.href);
+  } catch {
+    full = location.href;
+  }
+
   for (const pattern of URL_PATTERNS) {
     const match = full.match(pattern);
     if (match?.[1]) return match[1].toUpperCase();
@@ -44,8 +66,8 @@ function fromUrl(): string | null {
 // ─── DOM-based detection ──────────────────────────────────────────────────────
 
 /**
- * CSS selectors that may contain the ticker symbol on Questrade pages.
- * These are heuristic — update when the actual DOM structure is confirmed.
+ * CSS selectors that may contain the ticker on Questrade pages.
+ * Update these once the actual DOM structure is confirmed on the live platform.
  */
 const TICKER_SELECTORS = [
   '[data-symbol]',
@@ -58,15 +80,15 @@ const TICKER_SELECTORS = [
   '[data-testid*="ticker"]',
 ];
 
-/** A ticker is 1–5 uppercase letters, optionally followed by .TO */
-const TICKER_RE = /\b([A-Z]{1,5}(?:\.TO)?)\b/;
+/** A ticker is 1–6 uppercase letters, optionally followed by .TO */
+const TICKER_RE = /\b([A-Z]{1,6}(?:\.TO)?)\b/;
 
 function fromDom(): string | null {
   for (const selector of TICKER_SELECTORS) {
     const el = document.querySelector(selector);
     if (!el) continue;
 
-    // Try data attribute first
+    // Check data attributes first — more reliable than text content
     const attr =
       (el as HTMLElement).dataset.symbol ||
       (el as HTMLElement).dataset.ticker;
@@ -75,7 +97,7 @@ function fromDom(): string | null {
       if (m) return m[1];
     }
 
-    // Try text content
+    // Fall back to text content
     const text = el.textContent?.trim().toUpperCase() ?? '';
     const m = text.match(TICKER_RE);
     if (m) return m[1];
@@ -100,7 +122,7 @@ function nameFromDom(): string | null {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function detect(): DetectedStock | null {
-  const ticker = fromUrl() ?? fromDom();
+  const ticker = fromManualOverride() ?? fromUrl() ?? fromDom();
   if (!ticker) return null;
 
   const name = nameFromDom() ?? ticker;

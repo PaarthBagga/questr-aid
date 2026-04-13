@@ -16,8 +16,9 @@ describe('detectFrequency', () => {
   it('returns unknown for empty array', () => {
     expect(detectFrequency([])).toBe('unknown');
   });
-  it('returns monthly for 10+ events in the last year', () => {
+  it('returns monthly for 8+ events in the last year', () => {
     expect(detectFrequency(makeEvents(12))).toBe('monthly');
+    expect(detectFrequency(makeEvents(8))).toBe('monthly');
   });
   it('returns quarterly for 3–5 events in the last year', () => {
     expect(detectFrequency(makeEvents(4))).toBe('quarterly');

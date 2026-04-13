@@ -4,8 +4,12 @@
  *
  * Rules are intentionally conservative — never overconfident.
  * Language: "may suggest", "appears", "worth reviewing".
+ *
+ * Threshold values are imported from config so that messages automatically
+ * stay in sync when thresholds.ts is updated.
  */
 
+import { DIVIDEND_YIELD, PAYOUT_RATIO } from '../config/thresholds';
 import type {
   EpsResult,
   PeResult,
@@ -17,6 +21,19 @@ import type {
   MarketCapResult,
   StockType,
 } from '../types';
+
+// ─── Threshold labels derived from config ────────────────────────────────────
+
+const pct = (n: number) => `${(n * 100).toFixed(0)}%`;
+
+const YIELD_QUALITY_RANGE = `${pct(DIVIDEND_YIELD.QUALITY_MIN)}–${pct(DIVIDEND_YIELD.QUALITY_MAX)}`;
+const YIELD_RED_FLAG      = pct(DIVIDEND_YIELD.QUALITY_MAX);
+
+const PAYOUT_HEALTHY_RANGE  = `${pct(PAYOUT_RATIO.LOW)}–${pct(PAYOUT_RATIO.HEALTHY_MAX)}`;
+const PAYOUT_ELEVATED_RANGE = `${pct(PAYOUT_RATIO.HEALTHY_MAX)}–${pct(PAYOUT_RATIO.ELEVATED_MAX)}`;
+const PAYOUT_HIGH_RANGE     = `${pct(PAYOUT_RATIO.ELEVATED_MAX)}–${pct(PAYOUT_RATIO.DANGER_MAX)}`;
+
+// ─── Main interpretation ──────────────────────────────────────────────────────
 
 interface KpiInputs {
   eps: EpsResult;
@@ -72,17 +89,17 @@ export function interpret(kpis: KpiInputs): InterpretationMessage[] {
     });
   } else if (kpis.dividendYield.signal === 'low' && kpis.dividendYield.value != null) {
     msgs.push({
-      text: `Dividend yield of ${(kpis.dividendYield.value * 100).toFixed(2)}% is below the typical quality range (4–6%). May not be a primary income stock.`,
+      text: `Dividend yield of ${(kpis.dividendYield.value * 100).toFixed(2)}% is below the typical quality range (${YIELD_QUALITY_RANGE}). May not be a primary income stock.`,
       severity: 'neutral',
     });
   } else if (kpis.dividendYield.signal === 'quality' && kpis.dividendYield.value != null) {
     msgs.push({
-      text: `Dividend yield of ${(kpis.dividendYield.value * 100).toFixed(2)}% falls within the quality range (4–6%) — suggests an attractive income stock.`,
+      text: `Dividend yield of ${(kpis.dividendYield.value * 100).toFixed(2)}% falls within the quality range (${YIELD_QUALITY_RANGE}) — suggests an attractive income stock.`,
       severity: 'positive',
     });
   } else if (kpis.dividendYield.signal === 'red_flag' && kpis.dividendYield.value != null) {
     msgs.push({
-      text: `Dividend yield of ${(kpis.dividendYield.value * 100).toFixed(2)}% is unusually high (above 6%). The market may be pricing in a dividend cut, or the share price has fallen sharply. Verify sustainability carefully.`,
+      text: `Dividend yield of ${(kpis.dividendYield.value * 100).toFixed(2)}% is unusually high (above ${YIELD_RED_FLAG}). The market may be pricing in a dividend cut, or the share price has fallen sharply. Verify sustainability carefully.`,
       severity: 'warning',
     });
   }
@@ -90,7 +107,7 @@ export function interpret(kpis: KpiInputs): InterpretationMessage[] {
   // ── Payout Ratio ──────────────────────────────────────────────────────────
   if (kpis.payoutRatio.signal === 'healthy' && kpis.payoutRatio.percent != null) {
     msgs.push({
-      text: `Payout ratio of ${kpis.payoutRatio.percent.toFixed(0)}% is in a healthy range (30–60%) — dividend appears reasonably sustainable.`,
+      text: `Payout ratio of ${kpis.payoutRatio.percent.toFixed(0)}% is in a healthy range (${PAYOUT_HEALTHY_RANGE}) — dividend appears reasonably sustainable.`,
       severity: 'positive',
     });
   } else if (kpis.payoutRatio.signal === 'low' && kpis.payoutRatio.percent != null) {
@@ -100,17 +117,17 @@ export function interpret(kpis: KpiInputs): InterpretationMessage[] {
     });
   } else if (kpis.payoutRatio.signal === 'elevated' && kpis.payoutRatio.percent != null) {
     msgs.push({
-      text: `Payout ratio of ${kpis.payoutRatio.percent.toFixed(0)}% is elevated (60–80%) — dividend sustainability may be worth monitoring.`,
+      text: `Payout ratio of ${kpis.payoutRatio.percent.toFixed(0)}% is elevated (${PAYOUT_ELEVATED_RANGE}) — dividend sustainability may be worth monitoring.`,
       severity: 'caution',
     });
   } else if (kpis.payoutRatio.signal === 'high' && kpis.payoutRatio.percent != null) {
     msgs.push({
-      text: `Payout ratio of ${kpis.payoutRatio.percent.toFixed(0)}% is high (80–100%) — the company is paying out a large portion of earnings. Dividend risk may be elevated.`,
+      text: `Payout ratio of ${kpis.payoutRatio.percent.toFixed(0)}% is high (${PAYOUT_HIGH_RANGE}) — the company is paying out a large portion of earnings. Dividend risk may be elevated.`,
       severity: 'warning',
     });
   } else if (kpis.payoutRatio.signal === 'critical') {
     msgs.push({
-      text: 'Payout ratio exceeds 100% — the company appears to be paying dividends it cannot fully cover from earnings. This is a potential red flag.',
+      text: `Payout ratio exceeds ${pct(PAYOUT_RATIO.DANGER_MAX)} — the company appears to be paying dividends it cannot fully cover from earnings. This is a potential red flag.`,
       severity: 'warning',
     });
   }
@@ -131,7 +148,10 @@ export function interpret(kpis: KpiInputs): InterpretationMessage[] {
 export function interpretDrip(drip: DripResult | null): InterpretationMessage[] {
   if (!drip) return [];
 
-  const period = drip.frequency === 'monthly' ? 'month' : drip.frequency === 'quarterly' ? 'quarter' : 'period';
+  const period =
+    drip.frequency === 'monthly'   ? 'month'  :
+    drip.frequency === 'quarterly' ? 'quarter' : 'period';
+
   const msgs: InterpretationMessage[] = [];
 
   if (drip.dripSatisfied) {

@@ -11,6 +11,7 @@
  */
 
 import type { QuoteData, DividendFrequency } from '../types/index';
+import { detectFrequency } from '../calculations/drip';
 
 const YF = 'https://query1.finance.yahoo.com';
 const MODULES = 'price,summaryDetail,defaultKeyStatistics';
@@ -70,6 +71,7 @@ async function fetchSummary(symbol: string): Promise<YFSummaryResult | null> {
 }
 
 // ─── Dividend history for frequency detection ─────────────────────────────────
+// Uses detectFrequency() from drip.ts — single source of truth for the logic.
 
 async function fetchFrequency(symbol: string): Promise<DividendFrequency> {
   try {
@@ -84,13 +86,7 @@ async function fetchFrequency(symbol: string): Promise<DividendFrequency> {
     if (!rawDivs) return 'unknown';
 
     const events = Object.values(rawDivs) as Array<{ amount: number; date: number }>;
-    const cutoff = Date.now() / 1000 - 365 * 24 * 60 * 60;
-    const count = events.filter((e) => e.date >= cutoff).length;
-
-    if (count >= 10) return 'monthly';
-    if (count >= 3)  return 'quarterly';
-    if (count >= 1)  return 'annual';
-    return 'unknown';
+    return detectFrequency(events);
   } catch {
     return 'unknown';
   }

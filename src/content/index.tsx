@@ -8,58 +8,80 @@ import { createRoot } from 'react-dom/client';
 import { Panel } from '../ui/Panel';
 import panelStyles from '../ui/panel.css?inline';
 
-function mount() {
-  // Prevent double-mounting on SPA navigations
-  if (document.getElementById('questr-aid-host')) return;
+/** ms to wait after a URL change before remounting — lets the SPA route settle */
+const SPA_SETTLE_MS = 600;
 
-  // Shadow host — sits outside Questrade's DOM tree hierarchy visually
+/** ms between URL polls for SPA navigation detection (lighter than MutationObserver) */
+const URL_POLL_MS = 750;
+
+function getHost(): HTMLElement | null {
+  return document.getElementById('questr-aid-host') as HTMLElement | null;
+}
+
+function mount(tickerOverride?: string): void {
+  if (getHost()) return; // already mounted
+
   const host = document.createElement('div');
   host.id = 'questr-aid-host';
 
-  // Fixed positioning applied inline so no style sheet dependency
+  // Stash manual ticker so detect() can read it without module-level shared state
+  if (tickerOverride) {
+    host.dataset.manualTicker = tickerOverride;
+  }
+
   Object.assign(host.style, {
     position:  'fixed',
     top:       '80px',
     right:     '16px',
-    zIndex:    '2147483647',
+    zIndex:    '999999',
     width:     '288px',
-    fontFamily: 'inherit',
   });
 
   document.body.appendChild(host);
 
-  // Attach closed shadow DOM for full style isolation
+  // Attach closed shadow DOM for full style isolation from Questrade's CSS
   const shadow = host.attachShadow({ mode: 'closed' });
 
-  // Inject compiled Tailwind + custom styles
   const style = document.createElement('style');
   style.textContent = panelStyles;
   shadow.appendChild(style);
 
-  // React mount point inside shadow
   const mountPoint = document.createElement('div');
   shadow.appendChild(mountPoint);
 
   createRoot(mountPoint).render(<Panel />);
 }
 
-// Mount immediately if DOM is ready; otherwise wait
+function remount(tickerOverride?: string): void {
+  getHost()?.remove();
+  setTimeout(() => mount(tickerOverride), SPA_SETTLE_MS);
+}
+
+// ─── Initial mount ────────────────────────────────────────────────────────────
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', mount);
+  document.addEventListener('DOMContentLoaded', () => mount());
 } else {
   mount();
 }
 
-// Re-detect on Questrade SPA navigations
+// ─── SPA navigation detection ─────────────────────────────────────────────────
+// Poll the URL instead of observing all DOM mutations — far less resource
+// intensive on a content-heavy SPA like Questrade.
+
 let lastUrl = location.href;
-const observer = new MutationObserver(() => {
+
+setInterval(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
-    // Unmount old panel and remount so the new ticker is detected
-    const existing = document.getElementById('questr-aid-host');
-    if (existing) existing.remove();
-    setTimeout(mount, 500); // brief delay for SPA route to settle
+    remount(); // fresh detect() on the new route
+  }
+}, URL_POLL_MS);
+
+// ─── Popup messages ───────────────────────────────────────────────────────────
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === 'MANUAL_TICKER' && typeof message.symbol === 'string') {
+    remount(message.symbol.trim().toUpperCase());
   }
 });
-
-observer.observe(document.body, { childList: true, subtree: true });

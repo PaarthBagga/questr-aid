@@ -28,9 +28,9 @@ export function detectFrequency(
   const oneYearAgoSec = Date.now() / 1000 - 365 * 24 * 60 * 60;
   const recentCount = dividendEvents.filter((e) => e.date >= oneYearAgoSec).length;
 
-  if (recentCount >= 10) return 'monthly';   // 10–12 payments/year
-  if (recentCount >= 3)  return 'quarterly'; // 3–5 payments/year
-  if (recentCount >= 1)  return 'annual';    // 1–2 payments/year
+  if (recentCount >= 8) return 'monthly';   // 8–12 payments/year (allows missed months)
+  if (recentCount >= 3) return 'quarterly'; // 3–7 payments/year
+  if (recentCount >= 1) return 'annual';    // 1–2 payments/year
   return 'unknown';
 }
 
