@@ -71,57 +71,57 @@ function fromUrl(): string | null {
 
 // ─── DOM-based detection ──────────────────────────────────────────────────────
 
-/**
- * CSS selectors that may contain the ticker on Questrade pages.
- * Update these once the actual DOM structure is confirmed on the live platform.
- */
-const TICKER_SELECTORS = [
-  '[data-symbol]',
-  '[data-ticker]',
-  '.symbol',
-  '.ticker',
-  '[class*="symbol"]',
-  '[class*="ticker"]',
-  '[data-testid*="symbol"]',
-  '[data-testid*="ticker"]',
-];
-
 /** A ticker is 1–6 uppercase letters, optionally followed by .TO */
 const TICKER_RE = /\b([A-Z]{1,6}(?:\.TO)?)\b/;
 
+/**
+ * DOM-based ticker detection.
+ *
+ * Confirmed via DevTools on my.questrade.com/trading/quotes:
+ *
+ *   <h2 data-qt="lblTitle" class="symbol-title ng-binding" role="heading">
+ *     GOOG
+ *   </h2>
+ *
+ * Primary selector: [data-qt="lblTitle"]
+ * Fallback:         h2.symbol-title  (class-based, less brittle than value)
+ */
 function fromDom(): string | null {
-  for (const selector of TICKER_SELECTORS) {
-    const el = document.querySelector(selector);
-    if (!el) continue;
-
-    // Check data attributes first — more reliable than text content
-    const attr =
-      (el as HTMLElement).dataset.symbol ||
-      (el as HTMLElement).dataset.ticker;
-    if (attr) {
-      const m = attr.toUpperCase().match(TICKER_RE);
-      if (m) return m[1];
-    }
-
-    // Fall back to text content
-    const text = el.textContent?.trim().toUpperCase() ?? '';
+  // Primary — confirmed data-qt attribute on the ticker heading
+  const primary = document.querySelector('[data-qt="lblTitle"]');
+  if (primary) {
+    const text = primary.textContent?.trim().toUpperCase() ?? '';
     const m = text.match(TICKER_RE);
     if (m) return m[1];
   }
+
+  // Fallback — class name on the same element type
+  const byClass = document.querySelector('h2.symbol-title');
+  if (byClass) {
+    const text = byClass.textContent?.trim().toUpperCase() ?? '';
+    const m = text.match(TICKER_RE);
+    if (m) return m[1];
+  }
+
   return null;
 }
 
 function nameFromDom(): string | null {
-  const candidates = [
-    document.querySelector('h1'),
-    document.querySelector('[class*="company-name"]'),
-    document.querySelector('[class*="companyName"]'),
-    document.querySelector('[data-testid*="company"]'),
-  ];
-  for (const el of candidates) {
-    const text = el?.textContent?.trim();
+  // Company description element confirmed from DevTools inspection
+  // Expected text: "ALPHABET INC (NASDAQ)"
+  const desc = document.querySelector('[data-qa="titleDescription"]');
+  if (desc) {
+    const clone = desc.cloneNode(true) as Element;
+    // Remove exchange <small> tag to get clean company name only
+    clone.querySelectorAll('small').forEach((s) => s.remove());
+    const text = clone.textContent?.trim();
     if (text && text.length > 1 && text.length < 80) return text;
   }
+
+  // Fallback — first h1 on the page
+  const text = document.querySelector('h1')?.textContent?.trim();
+  if (text && text.length > 1 && text.length < 80) return text;
+
   return null;
 }
 
